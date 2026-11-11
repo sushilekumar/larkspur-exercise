@@ -23,28 +23,6 @@ TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligenc
                                         # ✏️ Build 2, step 2.1: schemas for the tools you add
 EXTRA_TOOLS: List[Dict[str, Any]] = [
     {
-        "name": "next_available_day",
-        "description": (
-            "Find the earliest date that has an open seat on a route. Call it when "
-            "search_alternatives shows nothing usable, or when the customer asks 'when is "
-            "the first day I can fly?' for a given origin and destination. You need the "
-            "origin, destination and a starting date, which come from lookup_booking and "
-            "get_flight_status. Returns a single date in YYYY-MM-DD format, or null if "
-            "no seat is open. It does not give flights or option_ids, so use "
-            "search_alternatives to pick a flight on that date."
-        ),
-        "input_schema": {
-            "type": "object",
-            "properties": {
-                "origin": {"type": "string", "description": "3-letter origin airport code, e.g. DEN."},
-                "dest": {"type": "string", "description": "3-letter destination airport code, e.g. AUS."},
-                "date": {"type": "string", "description": "Date to start searching from, in YYYY-MM-DD format, e.g. 2025-05-08. Do not use MM/DD/YYYY."},
-                "cabin": {"type": "string", "description": "Cabin to search: Y for economy (default) or J for business."},
-            },
-            "required": ["origin", "dest", "date"],
-        },
-    },
-    {
         "name": "reopen_stats",
         "description": (
             "Answers 'Is this problem going to come back?'. Call it when you need to "
@@ -79,7 +57,7 @@ def reopen_stats(intent_label=None):
         return stats.get(intent_label, {"error":f"no sample for {intent_label}"})
     return stats
 
-LOCAL_TOOLS: Dict[str, Any] = {"next_available_day": next_available_day, "reopen_stats": reopen_stats} # ✏️ Build 2, step 2.1: the functions behind them
+LOCAL_TOOLS: Dict[str, Any] = {"reopen_stats": reopen_stats} # ✏️ Build 2, step 2.1: the functions behind them
 
 def text_of(response) -> str:
     """Given. The last non-empty text block, never content[0]."""
@@ -143,7 +121,7 @@ def run_agent(pnr: str, last_name: str, message: str) -> str:            # ✏�
 def tool_list() -> List[Dict[str, Any]]:                   # ✏️ Build 2, step 2.2
     """Given. Exactly what Claude is offered on every turn; run.py --show-tools
     prints this list."""
-    return build_tools() + EXTRA_TOOLS
+    return build_tools() + mcp_client.tools() + EXTRA_TOOLS
 
 
 # ──────────────────────────────────────────────────────────────────────────────

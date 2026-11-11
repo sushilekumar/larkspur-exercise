@@ -9,6 +9,9 @@ Where you edit:   grep -n '✏' agent.py   (six marks, one per place)
 Steps and gates:  https://anthropicpartnerbasecamp.bts.com/
 """
 from __future__ import annotations
+import json
+import re
+from pathlib import Path
 from typing import Any, Dict, List
 from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
                      new_session, next_available_day, record_tool_result,
@@ -17,9 +20,66 @@ from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
 TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
-EXTRA_TOOLS: List[Dict[str, Any]] = []   # ✏️ Build 2, step 2.1: schemas for the tools you add
-LOCAL_TOOLS: Dict[str, Any] = {}         # ✏️ Build 2, step 2.1: the functions behind them
+                                        # ✏️ Build 2, step 2.1: schemas for the tools you add
+EXTRA_TOOLS: List[Dict[str, Any]] = [
+    {
+        "name": "next_available_day",
+        "description": (
+            "Find the earliest date that has an open seat on a route. Call it when "
+            "search_alternatives shows nothing usable, or when the customer asks 'when is "
+            "the first day I can fly?' for a given origin and destination. You need the "
+            "origin, destination and a starting date, which come from lookup_booking and "
+            "get_flight_status. Returns a single date in YYYY-MM-DD format, or null if "
+            "no seat is open. It does not give flights or option_ids, so use "
+            "search_alternatives to pick a flight on that date."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "origin": {"type": "string", "description": "3-letter origin airport code, e.g. DEN."},
+                "dest": {"type": "string", "description": "3-letter destination airport code, e.g. AUS."},
+                "date": {"type": "string", "description": "Date to start searching from, in YYYY-MM-DD format, e.g. 2025-05-08. Do not use MM/DD/YYYY."},
+                "cabin": {"type": "string", "description": "Cabin to search: Y for economy (default) or J for business."},
+            },
+            "required": ["origin", "dest", "date"],
+        },
+    },
+    {
+        "name": "reopen_stats",
+        "description": (
+            "Answers 'Is this problem going to come back?'. Call it when you need to "
+            "judge whether a customer's issue is likely to be reopened, for example "
+            "before promising that a rebooking or refund will settle it. It reads 8 "
+            "conversations handled by people (transcripts_sample.jsonl) and returns, "
+            "for each kind of problem (intent_label), how many of them came back within "
+            "72 hours and the reasons given. The sample is tiny, so quote counts, never "
+            "percentages, and say it is only 8 conversations."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "intent_label": {"type": "string", "description": "Optional. One kind of problem, e.g. refund_vs_credit. Leave out to get all kinds."},
+            },
+            "required": [],
+        },
+    },
+]
 
+def reopen_stats(intent_label=None):
+    path = Path(__file__).parent / "data" / "americas" / "transcripts_sample.jsonl"
+    stats = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        rec = json.loads(line)
+        s = stats.setdefault(rec["intent_label"], {"handled": 0, "reopened": 0, "reasons": []})
+        s["handled"] += 1
+        if rec.get("reopened_within_72h"):
+            s["reopened"] += 1
+            s["reasons"].append(rec.get("reopen_reason", ""))
+    if intent_label:
+        return stats.get(intent_label, {"error":f"no sample for {intent_label}"})
+    return stats
+
+LOCAL_TOOLS: Dict[str, Any] = {"next_available_day": next_available_day, "reopen_stats": reopen_stats} # ✏️ Build 2, step 2.1: the functions behind them
 
 def text_of(response) -> str:
     """Given. The last non-empty text block, never content[0]."""

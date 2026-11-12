@@ -19,7 +19,19 @@ from support import (MODEL, SYSTEM_PROMPT, call_local, execute_tool, mcp_client,
 
 MAX_TOOL_CALLS = 8  # Larkspur's own build capped the loop here; then a human takes over.
 
-TONE_ADDENDUM = ""                       # ✏️ Build 4, step 4.1, intelligence goal
+TONE_ADDENDUM = (
+    "\n\nTONE. Some customers will be angry, rude or abusive. Stay calm and professional. "
+    "Do not match their tone, argue, lecture or apologise repeatedly. Acknowledge their "
+    "frustration once, in one plain sentence, then move to what you can do for them. "
+    "Never insult, threaten or blame the customer. If a customer is abusive, say once, "
+    "politely, that you want to help and will keep going as long as the conversation stays "
+    "respectful. "
+    "If a customer mentions lawyers, legal action, a lawsuit or compensation claims, do "
+    "not discuss liability, do not admit fault and do not promise anything beyond what "
+    "check_policy returned. Give the facts from the tools, then call escalate_to_human "
+    "with a short summary of what they said and what you already told them. "
+    "Always base every statement about the flight and the policy on tool results."
+)                       # ✏️ Build 4, step 4.1, intelligence goal
                                         # ✏️ Build 2, step 2.1: schemas for the tools you add
 EXTRA_TOOLS: List[Dict[str, Any]] = [
     {
